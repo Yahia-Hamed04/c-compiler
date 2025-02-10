@@ -2,6 +2,12 @@
 
 Made using what i learned from reading [Crafting Interpreters](https://craftinginterpreters.com/) and [Writing a C Compiler](https://nostarch.com/writing-c-compiler)
 
+## Usage
+```sh
+ just driver compiler
+ just compile main.c
+```
+
 ## Roadmap
  - [x] Arithmetic expressions
  - [x] Variables

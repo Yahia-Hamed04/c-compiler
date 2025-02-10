@@ -15,6 +15,9 @@ compiler:
 driver:
  clang++ -std=c++17 compiler_driver.cpp -o build/compiler_driver
 
+compile args="":
+ build/compiler_driver {{args}}
+
 test-compiler args="":
  build/compiler_driver {{args}} build/file.c
 
