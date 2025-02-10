@@ -1,0 +1,72 @@
+#pragma once
+#include <unordered_map>
+#include <unordered_set>
+#include "../lexer/lexer.h"
+#include "types.h"
+
+namespace Parser {
+ struct MapEntry {
+  Token name;
+  bool from_current_block;
+  bool is_function;
+ };
+ 
+ class CParser {
+  private:
+   Lexer *lexer;
+   int token_index;
+   int var_count, label_count;
+   std::unordered_set<string> labels;
+   std::unordered_map<string, MapEntry> vars;
+   Program program;
+ 
+   Token peek(int n = 0);
+   Token consume();
+   bool did_consume(TokenType type);
+   Token expect(TokenType type, string err_msg);
+
+   MapEntry make_var(string prefix, bool is_function = false);
+   Token make_label(string prefix = "");
+ 
+   void parse();
+   FuncDecl parse_function();
+   Block parse_block();
+   Block_Item parse_block_item();
+   Declaration parse_declaration();
+   Statement parse_statement();
+   Expression parse_condition();
+   Expression parse_expression(int min_prec = 0);
+   Expression parse_conditional_middle();
+   Expression parse_factor();
+
+   void resolve_labels();
+   void resolve_labels(Block &block);
+   void resolve_labels(Label &label);
+   void resolve_labels(Statement &stmt);
+   
+   void resolve_idents();
+   void resolve_idents(Block &item);
+   void resolve_idents(Block_Item &item);
+   void resolve_idents(Declaration &decl);
+   void resolve_idents(FuncDecl &decl, bool in_block = true);
+   void resolve_idents(VarDecl &decl);
+   void resolve_idents(ForInit &init);
+   void resolve_idents(Statement &stmt);
+   void resolve_idents(Statement *stmt);
+   void resolve_idents(std::optional<Expression> &opt_expr);
+   void resolve_idents(Expression *expr);
+   void resolve_idents(Expression &expr);
+
+   void label_statement();
+   void label_statement(Block &block, Token current_label, Switch *curr_swtch = nullptr, bool in_switch = false);
+   void label_statement(Statement &stmt, Token current_label, Switch *curr_swtch = nullptr, bool in_switch = false);
+   void label_statement(Statement *stmt, Token current_label, Switch *curr_swtch = nullptr, bool in_switch = false);
+   
+  public:
+   CParser() = delete;
+   CParser(Lexer &lexer, bool resolve);
+ 
+   Program get_program();
+   int get_var_count();
+ };
+}
