@@ -7,7 +7,8 @@ using namespace TACKY;
 class TACKYifier {
  private:
   Parser::CParser *parser;
-  Program program;
+  TACKY::Program program;
+  TACKY::Function *current_function;
   int temp_var_count;
   int label_count;
 
@@ -26,6 +27,7 @@ class TACKYifier {
   Value tackyify(Parser::Expression *expr);
 
  public:
+  Parser::SymbolTable *symbols;
   TACKYifier() = delete;
   TACKYifier(Parser::CParser &parser);
 

@@ -2,12 +2,14 @@
 #include "instruction.h"
 
 namespace Gen {
+ using Instructions = std::vector<Instruction>;
+
  struct Function {
   Token name;
-  std::vector<Instruction> instructions;
+  Instructions instructions;
  };
  
  struct Program {
-  Function func;
+  std::vector<Function> funcs;
  };
 }

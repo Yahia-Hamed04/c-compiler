@@ -1,3 +1,5 @@
 .vscode
 build
 writing-a-c-compiler-tests
+*.i
+*.s

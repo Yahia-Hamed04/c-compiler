@@ -6,13 +6,22 @@
 namespace Parser {
  struct Block;
 
+ enum class StorageClass {
+  None,
+  Static,
+  Extern
+ };
+
  struct VarDecl {
   Token name;
+  StorageClass storage_class;
   std::optional<Expression> init = std::nullopt;
  };
 
  struct FuncDecl {
   Token name;
+  StorageClass storage_class;
+  std::unordered_map<string, Token> labels;
   std::vector<Token> params;
   Block *body;
  };
@@ -25,6 +34,6 @@ namespace Parser {
  };
  
  struct Program {
-  std::vector<FuncDecl> functions;
+  std::vector<Declaration> functions;
  };
 }

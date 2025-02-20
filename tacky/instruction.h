@@ -58,8 +58,16 @@ namespace TACKY {
 
   Label(Var name) : name(name) {}
  };
+
+ struct FunCall {
+  Token name;
+  std::vector<Value> args;
+  Value dst;
+
+  FunCall(Token name) : name(name) {}
+ };
  
- typedef std::variant<
+ using Instruction = std::variant<
   Unary,
   Return,
   Binary,
@@ -67,6 +75,7 @@ namespace TACKY {
   Jump,
   JumpIfZero,
   JumpIfNotZero,
-  Label
- > Instruction;
+  Label,
+  FunCall
+ >;
 }

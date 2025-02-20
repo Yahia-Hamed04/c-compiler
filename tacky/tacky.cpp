@@ -4,6 +4,7 @@ using namespace TACKY;
 
 TACKYifier::TACKYifier(Parser::CParser &parser) {
  this->parser = &parser;
+ this->symbols = &parser.symbols;
  this->temp_var_count = parser.get_var_count();
  this->label_count = 0;
 
@@ -49,10 +50,17 @@ void TACKYifier::tackyify() {
 }
 
 void TACKYifier::tackyify(Parser::FuncDecl function) {
- program.func.name = function.name;
+ if (function.body == nullptr) return;
+ 
+ Function func;
+ func.name = function.name;
+ func.params = function.params;
+ current_function = &func;
 
  tackyify(*function.body);
- tackyify((Parser::Statement)Parser::Return{.expr = Parser::Constant{._const = "0"}});
+ func.body.push_back(TACKY::Return(0));
+
+ program.funcs.push_back(func);
 }
 
 void TACKYifier::tackyify(Parser::Block block) {
@@ -79,7 +87,7 @@ void TACKYifier::tackyify(Parser::Declaration decl) {
    if (decl.init == std::nullopt) return;
   
    Value val = tackyify(&*decl.init);
-   program.func.body.push_back(Copy(val, decl.name));
+   current_function->body.push_back(Copy(val, decl.name));
   }
  }, decl);
 }
@@ -96,7 +104,7 @@ void TACKYifier::tackyify(Parser::ForInit init) {
 }
 
 void TACKYifier::tackyify(Parser::Statement stmt) {
- std::vector<Instruction> &function_body = program.func.body;
+ std::vector<Instruction> &function_body = current_function->body;
 
  std::visit(overloaded{
   [&](Parser::EmptyStatement _) {},
@@ -214,7 +222,7 @@ void TACKYifier::tackyify(Parser::Statement stmt) {
    string case_suffix = const_str + "_" + _case.label.to_string();
    Var case_label = make_label("case_", case_suffix);
 
-   program.func.body.push_back(TACKY::Label(case_label));
+   current_function->body.push_back(TACKY::Label(case_label));
    tackyify(*_case.stmt);
   },
   [&](Parser::Continue &cont) {
@@ -235,7 +243,7 @@ void TACKYifier::tackyify(Parser::Statement stmt) {
   [&](Parser::Label &label) {
    Var label_var = {.name = label.name};
 
-   program.func.body.push_back(TACKY::Label(label_var));
+   current_function->body.push_back(TACKY::Label(label_var));
    tackyify(*label.stmt);
   },
   [&](Parser::Expression expr) {
@@ -251,7 +259,7 @@ Value TACKYifier::tackyify(std::optional<Parser::Expression> expr) {
 }
 
 Value TACKYifier::tackyify(Parser::Expression *expr) {
- std::vector<Instruction> &function_body = program.func.body;
+ std::vector<Instruction> &function_body = current_function->body;
  
  return std::visit(overloaded{
   [&](Parser::Constant expr) -> Value {
@@ -266,11 +274,11 @@ Value TACKYifier::tackyify(Parser::Expression *expr) {
    if (unary.op == Parser::UnaryOp::Increment || unary.op == Parser::UnaryOp::Decrement) {
     TACKY::Var var = {.name = std::get_if<Parser::Var>(unary.expr)->name};
     TACKY::Var res = make_temporary(unary.postfix);
-    if (unary.postfix) function_body.push_back(Copy(var, res));
     
     inst.src = var;
     inst.dst = var;
 
+    if (unary.postfix) function_body.push_back(Copy(var, res));
     function_body.push_back(inst);
     return unary.postfix ? res : var;
    }
@@ -373,7 +381,20 @@ Value TACKYifier::tackyify(Parser::Expression *expr) {
    return result;
   },
   [&](Parser::FunctionCall expr) -> Value {
-   return 0;
+   Var result = make_temporary();
+    
+   TACKY::FunCall call(expr.name);
+   call.dst = result;
+   for (Parser::Expression *arg : expr.args) {
+    Value val = tackyify(arg);
+    Var   tmp = make_temporary();
+    
+    function_body.push_back(Copy(val, tmp));
+    call.args.push_back(tmp);
+   }
+
+   function_body.push_back(call);
+   return result;
   }
-}, *expr);
+ }, *expr);
 }

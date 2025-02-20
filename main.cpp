@@ -41,7 +41,7 @@ int main(int argc, char* argv[]) {
  Lexer lexer(src);
  if (mode == 1) return 0;
  Parser::CParser parser(lexer, mode >= 3);
- if (mode == 2) return 0;
+ if (mode == 2 || mode == 3) return 0;
  TACKYifier tackyifier(parser);
  if (mode == 4) return 0;
  Generator gen(tackyifier);

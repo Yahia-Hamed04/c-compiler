@@ -90,7 +90,8 @@ void Lexer::scan_keyword() {
    else if (token_string == "default") type = TokenType::Default;
   } break;
   case 'e': {
-   if (token_string == "else") type = TokenType::Else;
+        if (token_string == "else")   type = TokenType::Else;
+   else if (token_string == "extern") type = TokenType::Extern;
   } break;
   case 'f': {
    if (token_string == "for") type = TokenType::For;
@@ -106,7 +107,8 @@ void Lexer::scan_keyword() {
    if (token_string == "return") type = TokenType::Return;
   } break;
   case 's': {
-   if (token_string == "switch") type = TokenType::Switch;
+        if (token_string == "switch") type = TokenType::Switch;
+   else if (token_string == "static") type = TokenType::Static;
   } break;
   case 'v': {
    if (token_string == "void") type = TokenType::Void;
@@ -127,27 +129,27 @@ void Lexer::scan_symbol() {
   case '+': {
    type = did_consume('+') ? TokenType::Plus_Plus
         : did_consume('=') ? TokenType::Plus_Equal
-                          : TokenType::Plus;
+                           : TokenType::Plus;
   } break;
   case '-': {
    type = did_consume('-') ? TokenType::Minus_Minus
         : did_consume('=') ? TokenType::Minus_Equal
-                          : TokenType::Minus;
+                           : TokenType::Minus;
   } break;
   case '*': {
    type = did_consume('=') ? TokenType::Asterisk_Equal
-                          : TokenType::Asterisk;
+                           : TokenType::Asterisk;
   } break;
   case '/': {
    type = did_consume('=') ? TokenType::Slash_Equal
-                          : TokenType::Slash;
+                           : TokenType::Slash;
   } break;
   case '<': {
    type = TokenType::Less;
 
    if (did_consume('<')) {
     type = did_consume('=') ? TokenType::Less_Less_Equal
-                           : TokenType::Less_Less;
+                            : TokenType::Less_Less;
    } else if (did_consume('=')) {
     type = TokenType::Less_Equal;
    }
@@ -157,36 +159,36 @@ void Lexer::scan_symbol() {
 
    if (did_consume('>')) {
     type = did_consume('=') ? TokenType::Greater_Greater_Equal
-                           : TokenType::Greater_Greater;
+                            : TokenType::Greater_Greater;
    } else if (did_consume('=')) {
     type = TokenType::Greater_Equal;
    }
   } break;
   case '%': {
    type = did_consume('=') ? TokenType::Percent_Equal 
-                          : TokenType::Percent;
+                           : TokenType::Percent;
   } break;
   case '&': {
    type = did_consume('&') ? TokenType::Ampersand_Ampersand
         : did_consume('=') ? TokenType::Ampersand_Equal
-                          : TokenType::Ampersand;
+                           : TokenType::Ampersand;
   } break;
   case '^': {
    type = did_consume('=') ? TokenType::Caret_Equal
-                          : TokenType::Caret;
+                           : TokenType::Caret;
   } break;
   case '|': {
    type = did_consume('|') ? TokenType::Pipe_Pipe
         : did_consume('=') ? TokenType::Pipe_Equal
-                          : TokenType::Pipe;
+                           : TokenType::Pipe;
   } break;
   case '!': {
    type = did_consume('=') ? TokenType::Exclamation_Equal
-                          : TokenType::Exclamation;
+                           : TokenType::Exclamation;
   } break;
   case '=': {
    type = did_consume('=') ? TokenType::Equal_Equal
-                          : TokenType::Equal;
+                           : TokenType::Equal;
   } break;
   case '{': type = TokenType::Left_Curly; break;
   case '}': type = TokenType::Right_Curly; break;

@@ -24,6 +24,8 @@ enum TokenType {
  Switch,
  Case,
  Default,
+ Static,
+ Extern,
  // Keywords & Literals End
  // Punctuation Start
  Left_Curly,
@@ -125,6 +127,8 @@ static const char* strings[TokenType_Count] = {
  [TokenType::Switch]                = "Switch",
  [TokenType::Case]                  = "Case",
  [TokenType::Default]               = "Default",
+ [TokenType::Static]                = "Static",
+ [TokenType::Extern]                = "Extern",
  [TokenType::Plus]                  = "Plus",
  [TokenType::Plus_Plus]             = "Plus_Plus",
  [TokenType::Minus]                 = "Minus",

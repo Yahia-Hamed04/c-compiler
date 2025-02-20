@@ -1,6 +1,7 @@
 #pragma once
 #include "../lexer/tokens.h"
 #include "../tacky/tacky.h"
+#include "../parser/parser.h"
 #include "types.h"
 #include <unordered_map>
 
@@ -10,9 +11,16 @@ class Generator {
   Gen::Program program;
 
   void generate();
-  void add_inst(std::unordered_map<string, size_t> &vars, size_t &stack_alloc_amount, Gen::Instruction &&instruction);
+  Gen::Instructions generate(TACKY::Function function);
+  void add_inst(
+   std::unordered_map<string, size_t> &vars,
+   Gen::StackAlloc &stack_alloc,
+   Gen::Instructions &insts,
+   Gen::Instruction &&instruction
+  );
 
  public:
+  Parser::SymbolTable *symbols;
   Generator() = delete;
   Generator(TACKYifier &tackyifier);
 

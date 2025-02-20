@@ -2,7 +2,7 @@
 #include "parser.h"
 #include "../helpers.h"
 #include "parse.cpp"
-#include "resolve.cpp"
+#include "resolve/resolve.cpp"
 using namespace Parser;
 
 CParser::CParser(Lexer &lexer, bool resolve) {
@@ -13,17 +13,24 @@ CParser::CParser(Lexer &lexer, bool resolve) {
  if (resolve) {
   resolve_labels();
   resolve_idents();
+  typecheck();
   label_statement();
  }
 }
 
-MapEntry CParser::make_var(string prefix, bool is_function) {
- string fmt_str = prefix + ".%d";
+MapEntry CParser::make_var(string prefix, bool has_linkage) {
+ string fmt_str = prefix;
+ if (!has_linkage) fmt_str += ".%d";
  
  Token tmp = {.type = TokenType::Identifier, .start = new char[fmt_str.size() + 10], .line = 0};
- tmp.length = (size_t)sprintf(tmp.start, fmt_str.c_str(), var_count++);
+ if (has_linkage) {
+  tmp.length = (size_t)sprintf(tmp.start, "%s", fmt_str.c_str());
+ } else {
+  tmp.length = (size_t)sprintf(tmp.start, fmt_str.c_str(), var_count);
+ }
 
- return {.name = tmp, .from_current_block = true, .is_function = is_function};
+ var_count++;
+ return {.name = tmp, .from_current_scope = true, .has_linkage = has_linkage};
 }
 
 Token CParser::make_label(string prefix) {

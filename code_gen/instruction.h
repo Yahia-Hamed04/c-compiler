@@ -67,13 +67,26 @@ namespace Gen {
   size_t amount;
  };
  
+ struct StackFree {
+  size_t amount;
+ };
+ 
+ struct Push {
+  Operand operand;
+ };
+ 
+ struct Call {
+  Token name;
+ };
+ 
  struct Ret {};
  struct Cdq {};
  
- typedef std::variant<
+ using Instruction = std::variant<
   Mov,
   Unary, Binary, Idiv,
   Cmp, Jmp, Conditional_Jmp, Set_Condition, Label,  
-  StackAlloc, Ret, Cdq
- > Instruction;
+  StackAlloc, StackFree, Ret, Cdq,
+  Push, Call
+ >;
 }

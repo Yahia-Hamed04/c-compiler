@@ -13,7 +13,7 @@ Made using what i learned from reading [Crafting Interpreters](https://craftingi
  - [x] Variables
  - [x] Boolean expressions
  - [x] Control-Flow statements (`if`, `else`, `while`, `for`, etc.)
- - [ ] Functions
+ - [x] Functions
  - [ ] Primitive types (only supports `int` for now)
  - [ ] Pointers
  - [ ] Arrays

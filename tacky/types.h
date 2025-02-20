@@ -6,10 +6,11 @@
 namespace TACKY {
  struct Function {
   Token name;
+  std::vector<Token> params;
   std::vector<Instruction> body;
  };
  
  struct Program {
-  Function func;
+  std::vector<Function> funcs;
  };
 }

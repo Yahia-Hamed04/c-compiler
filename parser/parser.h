@@ -7,17 +7,30 @@
 namespace Parser {
  struct MapEntry {
   Token name;
-  bool from_current_block;
-  bool is_function;
+  bool from_current_scope;
+  bool has_linkage;
  };
+
+ enum class Type {
+  Int, 
+  Function
+ };
+
+ struct TypeEntry {
+  Type type;
+  int params_count = 0;
+  bool defined = false;
+ };
+
+ using SymbolTable = std::unordered_map<string, TypeEntry>;
  
  class CParser {
   private:
    Lexer *lexer;
    int token_index;
    int var_count, label_count;
-   std::unordered_set<string> labels;
-   std::unordered_map<string, MapEntry> vars;
+   FuncDecl *curr_func;
+   std::unordered_map<string, MapEntry> idents;
    Program program;
  
    Token peek(int n = 0);
@@ -25,7 +38,7 @@ namespace Parser {
    bool did_consume(TokenType type);
    Token expect(TokenType type, string err_msg);
 
-   MapEntry make_var(string prefix, bool is_function = false);
+   MapEntry make_var(string prefix, bool has_linkage = false);
    Token make_label(string prefix = "");
  
    void parse();
@@ -43,6 +56,9 @@ namespace Parser {
    void resolve_labels(Block &block);
    void resolve_labels(Label &label);
    void resolve_labels(Statement &stmt);
+
+   void new_scope();
+   void restore_scope();
    
    void resolve_idents();
    void resolve_idents(Block &item);
@@ -62,7 +78,21 @@ namespace Parser {
    void label_statement(Statement &stmt, Token current_label, Switch *curr_swtch = nullptr, bool in_switch = false);
    void label_statement(Statement *stmt, Token current_label, Switch *curr_swtch = nullptr, bool in_switch = false);
    
+   void typecheck();
+   void typecheck(Block &block);
+   void typecheck(Block_Item &item);
+   void typecheck(Declaration &decl);
+   void typecheck(VarDecl &var);
+   void typecheck(FuncDecl &func);
+   void typecheck(Statement *stmt);
+   void typecheck(Statement &stmt);
+   void typecheck(ForInit &init);
+   void typecheck(std::optional<Expression> &expr);
+   void typecheck(Expression *expr);
+   void typecheck(Expression &expr);
+
   public:
+   SymbolTable symbols;
    CParser() = delete;
    CParser(Lexer &lexer, bool resolve);
  
