@@ -14,7 +14,7 @@ Made using what i learned from reading [Crafting Interpreters](https://craftingi
  - [x] Boolean expressions
  - [x] Control-Flow statements (`if`, `else`, `while`, `for`, etc.)
  - [x] Functions
- - [x] Primitive types (only supports `int` for now)
+ - [x] Primitive types
  - [ ] Structures
  - [ ] Pointers
  - [ ] Arrays
