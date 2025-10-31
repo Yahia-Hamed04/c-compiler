@@ -17,6 +17,7 @@ namespace Parser {
  struct Label;
  struct Block;
  struct CompoundStatement;
+ struct ExpressionStatement;
  struct EmptyStatement;
  
  using Statement = std::variant<
@@ -31,17 +32,18 @@ namespace Parser {
   Continue,
   Goto,
   Label,
-  Expression,
+  ExpressionStatement,
   CompoundStatement,
   EmptyStatement
  >;
 
  struct Return {
-  Expression expr;
+  Type type;
+  Expression *expr;
  };
 
  struct If {
-  Expression condition;
+  Expression *condition;
   Statement *then, *_else;
  };
 
@@ -53,38 +55,37 @@ namespace Parser {
   Token label;
  };
 
- using ForInit = std::variant<VarDecl*, std::optional<Expression>>;
+ using ForInit = std::variant<VarDecl *, Expression *>;
  struct For {
-  ForInit init = std::nullopt;
-  std::optional<Expression> condition = std::nullopt;
-  std::optional<Expression> post = std::nullopt;
+  ForInit init = static_cast<Expression *>(nullptr);
+  Expression *condition = nullptr;
+  Expression *post = nullptr;
   Statement *body;
   Token label;
  };
 
  struct While {
-  Expression condition;
+  Expression *condition;
   Statement *body;
   Token label;
  };
 
  struct DoWhile {
   Statement *body;
-  Expression condition;
+  Expression *condition;
   Token label;
  };
 
  struct Switch {
-  Expression expr;
+  Expression *expr;
   Statement *body;
   std::vector<Case*> cases;
   Token label;
  };
 
  struct Case {
-  Expression expr;
+  Expression *expr = nullptr;
   Statement *stmt;
-  bool is_default;
   Token label;
  };
 
@@ -95,6 +96,10 @@ namespace Parser {
  struct Label {
   Token name;
   Statement *stmt;
+ };
+
+ struct ExpressionStatement {
+  Expression *expr;
  };
 
  struct CompoundStatement {

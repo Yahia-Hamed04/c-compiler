@@ -1,10 +1,20 @@
 #pragma once
 #include "operand.h"
+#include "../lexer/tokens.h"
 #include <variant>
 #include <cctype>
 
 namespace Gen {
  struct Mov {
+  AssemblyType type;
+  Operand src, dst;
+ };
+
+ struct Movsx {
+  Operand src, dst;
+ };
+
+ struct Movzx {
   Operand src, dst;
  };
  
@@ -14,25 +24,29 @@ namespace Gen {
  };
  
  struct Unary {
+  AssemblyType type;
   UnaryOp op;
   Operand operand;
  };
  
  enum BinaryOp {
-  And, Or, Xor, Sal, Sar,
+  And, Or, Xor, Sal, Sar, Shl, Shr,
   Add, Sub, Mult,
  };
  
  struct Binary {
+  AssemblyType type;
   BinaryOp op;
   Operand src, dst;
  };
  
- struct Idiv {
+ struct Div {
+  AssemblyType type;
   Operand operand;
  };
 
  struct Cmp {
+  AssemblyType type;
   Operand op1, op2;
  };
 
@@ -42,7 +56,11 @@ namespace Gen {
   Greater,
   Greater_Equal,
   Less,
-  Less_Equal
+  Less_Equal,
+  Above,
+  Above_Equal,
+  Below,
+  Below_Equal
  };
 
  struct Jmp {
@@ -80,13 +98,15 @@ namespace Gen {
  };
  
  struct Ret {};
- struct Cdq {};
+ struct Cdq {
+  AssemblyType type;
+ };
  
  using Instruction = std::variant<
-  Mov,
-  Unary, Binary, Idiv,
+  Mov, Movsx, Movzx,
+  Unary, Binary, Div,
   Cmp, Jmp, Conditional_Jmp, Set_Condition, Label,  
-  StackAlloc, StackFree, Ret, Cdq,
+  Ret, Cdq,
   Push, Call
  >;
 }

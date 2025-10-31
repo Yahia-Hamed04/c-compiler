@@ -7,10 +7,11 @@ using namespace Parser;
 void CParser::label_statement() {
  Token null_token = {.length = 0};
  
- for (FuncDecl func : program.functions) {
-  if (func.body == nullptr) continue;
+ for (Declaration &decl : program.decls) {
+  FuncDecl *func = std::get_if<FuncDecl>(&decl);
+  if (func == nullptr || func->body == nullptr) continue;
   
-  label_statement(*func.body, null_token);
+  label_statement(*func->body, null_token);
  }
 }
 
@@ -62,10 +63,14 @@ void CParser::label_statement(Statement &stmt, Token current_label, Switch *curr
    label_statement(swtch.body, current_label, &swtch, true);
 
    std::unordered_set<string> case_consts;
-
    for (Case *_case : swtch.cases) {
-    string const_str = std::get<Constant>(_case->expr)._const;
-    
+    string const_str;
+    if (_case->expr != nullptr) {
+     const_str = static_cast<Parser::Constant *>(_case->expr)->_const;
+    } else {
+     const_str = "";
+    }
+
     if (case_consts.count(const_str)) {
      error("Duplicate case");
     }
@@ -79,6 +84,11 @@ void CParser::label_statement(Statement &stmt, Token current_label, Switch *curr
    }
 
    _case.label = curr_swtch->label;
+   if (_case.expr != nullptr) {
+    _case.expr->type = curr_swtch->expr->type;
+    typecheck(_case.expr);
+   }
+
    curr_swtch->cases.push_back(&_case);
    label_statement(_case.stmt, current_label, curr_swtch, true);
   },

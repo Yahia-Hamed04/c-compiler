@@ -36,8 +36,8 @@ int main(int argc, char* argv[]) {
 
  if (stage != "") return 0;
 
- cmd  = "gcc " + string(dont_link ? "-c " : "");
- cmd += "asm.s -o " + filename + string(dont_link ? ".o" : "") + " && rm asm.s";
+ cmd  = string("gcc ") + (dont_link ? "-c " : "");
+ cmd += "asm.s -o " + filename + (dont_link ? ".o" : "");// + " && rm asm.s";
  if ((exit = system(cmd.c_str()))) return WEXITSTATUS(exit);
  
  return 0;

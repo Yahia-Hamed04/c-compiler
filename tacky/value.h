@@ -1,17 +1,25 @@
 #pragma once
 #include "../lexer/tokens.h"
+#include "../parser/parser.h"
 #include <variant>
 #include <string>
 namespace TACKY {
- /* struct Constant {
-  int _const;
+ struct Constant {
+  Parser::Type type = Parser::Type::Int;
+  size_t _const;
  
-  Constant(int _const): _const(_const) {}
- }; */
- 
- struct Var {
-  Token name;
+  Constant(): _const(0) {}
+  Constant(size_t _const): _const(_const) {}
+  Constant(Parser::Constant *_const): type(_const->type), _const(std::stoull(_const->_const)) {}
  };
  
- typedef std::variant<int /* Constant */, Var> Value;
+ struct Var {
+  Parser::Type type;
+  Token name;
+
+  Var() {}
+  Var(Token name): name(name) {}
+ };
+ 
+ typedef std::variant<Constant, Var> Value;
 }

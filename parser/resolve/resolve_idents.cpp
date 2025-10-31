@@ -4,10 +4,8 @@
 using namespace Parser;
 
 void CParser::resolve_idents() {
- for (FuncDecl &func : program.functions) {
-  curr_func = &func;
-  
-  resolve_idents(func, false);
+ for (Declaration &decl : program.decls) {
+  resolve_idents(decl, false);
  }
 }
 
@@ -28,18 +26,28 @@ void CParser::resolve_idents(Block_Item &item) {
  }, item);
 }
 
-void CParser::resolve_idents(Declaration &decl) {
+void CParser::resolve_idents(Declaration &decl, bool in_block) {
  std::visit(overloaded{
   [&](FuncDecl &decl) {
-   resolve_idents(decl);
+   curr_func = &decl;
+   
+   resolve_idents(decl, in_block);
   },
   [&](VarDecl &decl) {
-   resolve_idents(decl);
+   resolve_idents(decl, in_block);
   }
  }, decl);
 }
 
 void CParser::resolve_idents(FuncDecl &decl, bool in_block) {
+ if (in_block) {
+  if (decl.ret.storage_class == StorageClass::Static) {
+   error_at_line(decl.name.line, "Static function declarations must be global.");
+  } else if (decl.body != nullptr) {
+   error_at_line(decl.name.line, "Functions cannot be defined in a local scope.");
+  }  
+ }
+
  string func_name = decl.name.to_string();
  if (idents.count(func_name)) {
   MapEntry entry = idents[func_name];
@@ -58,34 +66,49 @@ void CParser::resolve_idents(FuncDecl &decl, bool in_block) {
  new_scope();
 
  for (Token &param : decl.params) {
-  VarDecl param_decl = {.name = param, .init = std::nullopt};
+  VarDecl param_decl = {.name = param, .init = nullptr};
 
-  resolve_idents(param_decl);
+  resolve_idents(param_decl, true);
   param = param_decl.name;
  }
 
  if (decl.body != nullptr) {
-  if (in_block) {
-   error_at_line(decl.name.line, "Functions cannot be defined in a local scope.");
-  }
-
   resolve_idents(*decl.body);
  }
 
  idents = old_idents;
 }
 
-void CParser::resolve_idents(VarDecl &decl) {
+void CParser::resolve_idents(VarDecl &decl, bool in_block) {
  string var_name = decl.name.to_string();
- if (idents.count(var_name) && idents[var_name].from_current_scope) {
-  error_at_line(decl.name.line, "Duplicate variable declaration for \"" + var_name + "\".");
+ if (!in_block) {
+  idents[var_name] = {
+   .name = decl.name,
+   .from_current_scope = true,
+   .has_linkage = true
+  };
+ } else {
+  if (idents.count(var_name)) {
+   MapEntry entry = idents[var_name];
+
+   if (entry.from_current_scope && !(entry.has_linkage && decl.tasc.storage_class == StorageClass::Extern)) {
+    error_at_line(decl.name.line, "conflicting local variable declaration for \"" + var_name + "\".");
+   }
+  }
+
+  if (decl.tasc.storage_class == StorageClass::Extern) {
+   idents[var_name] =  {
+    .name = decl.name,
+    .from_current_scope = true,
+    .has_linkage = true
+   };
+  } else {
+   MapEntry new_var = make_var(var_name);
+   idents[var_name] = new_var;
+   decl.name = new_var.name;
+   resolve_idents(decl.init);
+  }
  }
-
- MapEntry new_var = make_var(var_name);
- idents[var_name] = new_var;
- decl.name = new_var.name;
-
- resolve_idents(decl.init);
 }
 
 void CParser::resolve_idents(Statement *stmt) {
@@ -139,7 +162,7 @@ void CParser::resolve_idents(Statement &stmt) {
    resolve_idents(swtch.body);
   },
   [&](Case &_case) {
-   if (!(_case.is_default || std::holds_alternative<Constant>(_case.expr))) {
+   if (!(_case.expr == nullptr || _case.expr->is_const())) {
     error("case argument must be a constant.");
    }
 
@@ -158,8 +181,8 @@ void CParser::resolve_idents(Statement &stmt) {
    label.name = curr_func->labels[label.name.to_string()];
    resolve_idents(label.stmt);
   },
-  [&](Expression &expr) {
-   resolve_idents(expr);
+  [&](ExpressionStatement expr) {
+   resolve_idents(expr.expr);
   },
  }, stmt);
 }
@@ -167,72 +190,83 @@ void CParser::resolve_idents(Statement &stmt) {
 void CParser::resolve_idents(ForInit &init) {
  std::visit(overloaded{
   [&](VarDecl *decl) {
-   resolve_idents(*decl);
+   resolve_idents(*decl, true);
   },
-  [&](std::optional<Expression> &expr) {
+  [&](Expression *expr) {
    resolve_idents(expr);
   }
  }, init);
 }
 
-void CParser::resolve_idents(std::optional<Expression> &opt_expr) {
- if (opt_expr == std::nullopt) return;
+class ResolvingExpessionVisitor : public ExpressionVisitor {
+ private:
+  std::unordered_map<string, MapEntry> *idents;
 
- resolve_idents(*opt_expr);
-}
+ public:
+  ResolvingExpessionVisitor(std::unordered_map<string, MapEntry> &idents) {
+   this->idents = &idents;
+  }
 
-void CParser::resolve_idents(Expression *expr) {
- if (expr == nullptr) return;
+  void visit(Constant *_) {}
 
- resolve_idents(*expr);
-}
+  void visit(Var *var) {
+   string var_name = var->name.to_string();
 
-void CParser::resolve_idents(Expression &expr) {
- std::visit(overloaded{
-  [&](Constant _) {},
-  [&](Var &var) {
-   string var_name = var.name.to_string();
-
-   if (!idents.count(var_name)) {
-    error_at_line(var.name.line, "Undeclared variable \"" + var_name + "\"!");
+   if (!idents->count(var_name)) {
+    error_at_line(var->name.line, "Undeclared variable \"" + var_name + "\"!");
    }
 
-   var.name = idents[var_name].name;
-  },
-  [&](Unary &un) {
-   bool valid_lvalue = std::holds_alternative<Var>(*un.expr);
-   if ((un.op == UnaryOp::Increment || un.op == UnaryOp::Decrement) && !valid_lvalue) {
+   var->name = (*idents)[var_name].name;
+  }
+
+  void visit(Unary *un) {
+   bool valid_lvalue = un->expr->is_var();
+   if ((un->op == UnaryOp::Increment || un->op == UnaryOp::Decrement) && !valid_lvalue) {
     error("Invalid lvalue");
    }
 
-   resolve_idents(un.expr);
-  },
-  [&](Binary &bin) {
-   resolve_idents(bin.left);
-   resolve_idents(bin.right);
-  },
-  [&](Assignment &assign) {
-   bool valid_lvalue = std::holds_alternative<Var>(*assign.left);
+   un->expr->accept(this);
+  }
+
+  void visit(Binary *bin) {
+   bin->left->accept(this);
+   bin->right->accept(this);
+  }
+
+  void visit(Assignment *assign) {
+   bool valid_lvalue = assign->left->is_var();
    if (!valid_lvalue) error("Invalid lvalue");
 
-   resolve_idents(assign.left);
-   resolve_idents(assign.right);
-  },
-  [&](Conditional &conditional) {
-   resolve_idents(conditional.condition);
-   resolve_idents(conditional.left);
-   resolve_idents(conditional.right);
-  },
-  [&](FunctionCall &call) {
-   string func_name = call.name.to_string();
-   if (!idents.count(func_name)) {
-    error_at_line(call.name.line, "Undeclared function \"" + func_name + "\"!");
+   assign->left->accept(this);
+   assign->right->accept(this);
+  }
+
+  void visit(Conditional *conditional) {
+   conditional->condition->accept(this);
+   conditional->left->accept(this);
+   conditional->right->accept(this);
+  }
+
+  void visit(FunctionCall *call) {
+   string func_name = call->name.to_string();
+   if (!idents->count(func_name)) {
+    error_at_line(call->name.line, "Undeclared function \"" + func_name + "\"!");
    }
    
-   call.name = idents[func_name].name;
-   for (Expression *arg : call.args) {
-    resolve_idents(arg);
+   call->name = (*idents)[func_name].name;
+   for (Expression *arg : call->args) {
+    arg->accept(this);
    }
   }
- }, expr);
+
+  void visit(Cast *cast) {
+   cast->expr->accept(this);
+  }
+};
+
+void CParser::resolve_idents(Expression *expr) {
+ if (expr == nullptr) return;
+ ResolvingExpessionVisitor visitor(idents);
+
+ expr->accept(&visitor);
 }

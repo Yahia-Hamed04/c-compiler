@@ -43,7 +43,7 @@ void Lexer::tokenise() {
 
    c = peek();
    if (isalpha(c) || c == '_') {
-    error("Identifiers cannot begin with non-alphabetic characters.");
+    error_at_line(line, "Identifiers cannot begin with non-alphabetic characters.");
    }
   } else if (isalpha(c) || c == '_') {
    scan_keyword();
@@ -64,9 +64,31 @@ void Lexer::scan_number() {
   consume();
  }
 
- assert(src[current] != '.' && "Floats aren't supported yet.");
+ assert(peek() != '.' && "Floats aren't supported yet.");
 
- add_token(TokenType::Number);
+ bool is_long = false;
+ bool is_unsigned = false;
+ while (tolower(peek()) == 'l' || tolower(peek()) == 'u') {
+  if (did_consume('l') || did_consume('L')) {
+   if (is_long) error_at_line(line, "Invalid suffix");
+
+   is_long = true;
+  } else if (did_consume('u') || did_consume('U')) {
+   if (is_unsigned) error_at_line(line, "Invalid, suffix");
+
+   is_unsigned = true;
+  }
+ }
+
+ if (is_long) {
+  if (is_unsigned) add_token(TokenType::Unsigned_Long_Number);
+  else add_token(TokenType::Long_Number);
+ } else {
+  if (is_unsigned) {
+   add_token(TokenType::Unsigned_Number);
+  }
+  else add_token(TokenType::Number);
+ }
 }
 
 void Lexer::scan_keyword() {
@@ -76,7 +98,6 @@ void Lexer::scan_keyword() {
 
  TokenType type = TokenType::Identifier;
  string token_string = src.substr(start, current - start);
-
  switch (token_string[0]) {
   case 'b': {
    if (token_string == "break") type = TokenType::Break;
@@ -103,13 +124,20 @@ void Lexer::scan_keyword() {
         if (token_string == "if")  type = TokenType::If;
    else if (token_string == "int") type = TokenType::Int;
   } break;
+  case 'l': {
+   if (token_string == "long") type = TokenType::Long;
+  } break;
   case 'r': {
    if (token_string == "return") type = TokenType::Return;
   } break;
   case 's': {
         if (token_string == "switch") type = TokenType::Switch;
    else if (token_string == "static") type = TokenType::Static;
+   else if (token_string == "signed") type = TokenType::Signed;
   } break;
+  case 'u': {
+   if (token_string == "unsigned") type = TokenType::Unsigned;
+  }
   case 'v': {
    if (token_string == "void") type = TokenType::Void;
   } break;
@@ -202,7 +230,7 @@ void Lexer::scan_symbol() {
   default: {
    std::string err_msg = "Unknown symbol:  ";
    err_msg[err_msg.size() - 1] = sym;
-   error(err_msg);
+   error_at_line(line, err_msg);
   }
  }
 
@@ -217,7 +245,10 @@ void Lexer::print_token(Token &token) {
  string str = "Type: ";
  str += strings[token.type];
 
- if (token.type == TokenType::Identifier || token.type == TokenType::Number) {
+ if (
+  token.type == TokenType::Identifier ||
+  TokenType::Number <= token.type && token.type <= TokenType::Unsigned_Long_Number
+ ) {
   str += ", String: " + token.to_string();
  }
 

@@ -9,10 +9,11 @@ using std::size_t;
 enum TokenType {
  // Keywords & Literals Start
  Identifier,
- Void,
- Int,
  Return,
  Number,
+ Unsigned_Number,
+ Long_Number,
+ Unsigned_Long_Number,
  If,
  Else,
  Goto,
@@ -24,8 +25,17 @@ enum TokenType {
  Switch,
  Case,
  Default,
+ Void,
+  // Specifiers Begin
+   // Types Begin
+ Int,
+ Long,
+ Signed,
+ Unsigned,
+   // Types End
  Static,
  Extern,
+  // Specifiers End
  // Keywords & Literals End
  // Punctuation Start
  Left_Curly,
@@ -116,6 +126,7 @@ static int precedence[TokenType_Count] = {
 static const char* strings[TokenType_Count] = {
  [TokenType::Identifier]            = "Identifier",
  [TokenType::Int]                   = "Int",
+ [TokenType::Long]                  = "Long",
  [TokenType::If]                    = "If",
  [TokenType::Else]                  = "Else",
  [TokenType::Goto]                  = "Goto",

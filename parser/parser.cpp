@@ -8,6 +8,8 @@ using namespace Parser;
 CParser::CParser(Lexer &lexer, bool resolve) {
  this->lexer = &lexer;
  token_index = 0;
+ var_count = 0;
+ label_count = 0;
  
  parse();
  if (resolve) {
@@ -63,6 +65,13 @@ bool CParser::did_consume(TokenType type) {
  if (equal) consume();
 
  return equal;
+}
+
+bool CParser::did_consume(bool (*pred)(TokenType)) {
+ bool res = pred(peek().type);
+ if (res) consume();
+
+ return res;
 }
 
 Token CParser::expect(TokenType type, string err_msg) {

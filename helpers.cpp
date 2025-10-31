@@ -18,3 +18,11 @@ void error_at_line(int line, std::string err_msg) {
 
  exit(1);
 }
+
+size_t truncate(size_t num) {
+ if (num > Long) {
+  num &= (size_t(1) << 32) - 1;
+ }
+
+ return num;
+}

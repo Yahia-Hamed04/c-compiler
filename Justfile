@@ -1,8 +1,8 @@
 set shell := ["bash", "-cu"]
 set quiet
 
-compiler:
- clang++ -std=c++17 -Wno-c99-designator -Wno-switch \
+compiler debug="0":
+ clang++ {{ if debug == "1" { "-g -O0" } else { "" } }} -std=c++23 -Wno-c99-designator -Wno-switch \
  main.cpp \
  helpers.cpp \
  lexer/lexer.cpp \
@@ -10,7 +10,7 @@ compiler:
  tacky/tacky.cpp \
  code_gen/code_gen.cpp \
  emitter.cpp \
- -o build/compiler
+ -lstdc++_libbacktrace -o build/compiler
 
 driver:
  clang++ -std=c++17 compiler_driver.cpp -o build/compiler_driver

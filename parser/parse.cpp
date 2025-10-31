@@ -3,14 +3,19 @@
 #include "../helpers.h"
 using namespace Parser;
 
+bool is_specifier(TokenType type) {
+ return TokenType::Int <= type && type <= TokenType::Extern;
+}
+
+bool is_type(TokenType type) {
+ return TokenType::Int <= type && type <= TokenType::Unsigned;
+}
+
 void CParser::parse() {
  while (token_index < lexer->tokens.size()) {
-  expect(TokenType::Int, "expected function return type");
-  Token name = expect(TokenType::Identifier, "Expected identifier after type.");
-  FuncDecl function = parse_function();
-  function.name = name;
+  Declaration decl = parse_declaration();
 
-  program.functions.push_back(function);
+  program.decls.push_back(decl);
  }
 }
 
@@ -22,10 +27,36 @@ FuncDecl CParser::parse_function() {
  if (did_consume(TokenType::Right_Paren)) {
   error_at_line(line, "Expected parameter list; did you mean to use \"void\" instead?");
  } else if (!did_consume(TokenType::Void)) do {
-  expect(TokenType::Int, "Expected parameter type.");
-  Token name = expect(TokenType::Identifier, "Expected parameter name.");
+  std::vector<Type> types;
+  bool has_signed = false, has_unsigned = false;
+  for (TokenType type = peek().type; is_type(type); consume(), type = peek().type) {
+   switch (type) {
+    case TokenType::Int:  types.push_back(Type::Int); break;
+    case TokenType::Long: types.push_back(Type::Long); break;
+    case TokenType::Signed: {
+     if (has_signed || has_unsigned) error_at_line(peek().line, "Invalid Type");
+ 
+     has_signed = true;
+    } break;
+    case TokenType::Unsigned: {
+     if (has_signed || has_unsigned) error_at_line(peek().line, "Invalid Type");
+ 
+     has_unsigned = true;
+    } break;
+   }
+  }
+ 
+  if (types.size() == 0 && (has_signed || has_unsigned)) {
+   types.push_back(has_unsigned ? Type::UInt : Type::Int);
+  } else if (has_unsigned) {
+   for (Type &t : types) {
+    if (t == Type::Int)  t = Type::UInt;
+    if (t == Type::Long) t = Type::ULong;
+   }
+  }
 
-  function.params.push_back(name);
+  function.param_types.push_back(parse_type(types));
+  function.params.push_back(expect(TokenType::Identifier, "Expected parameter name."));
  } while (did_consume(TokenType::Comma));
 
  expect(TokenType::Right_Paren, "Expected ')' after parameter list.");
@@ -55,8 +86,9 @@ Block CParser::parse_block() {
 
 Block_Item CParser::parse_block_item() {
  Block_Item block_item;
+ TokenType type = peek().type;
 
- if (did_consume(TokenType::Int)) {
+ if (is_specifier(type)) {
   block_item = parse_declaration();
  } else {
   block_item = parse_statement();
@@ -67,15 +99,17 @@ Block_Item CParser::parse_block_item() {
 
 Declaration CParser::parse_declaration() {
  Declaration decl;
- Token name = expect(TokenType::Identifier, "Expected identifier after type.");
+ TypeAndStorageClass tasc = parse_type_and_storage_class();
+ Token name = expect(TokenType::Identifier, "Expected identifier after specifiers.");
 
  if (peek().type == TokenType::Left_Paren) {
   FuncDecl func_decl = parse_function();
   func_decl.name = name;
+  func_decl.ret = tasc;
 
   decl = func_decl;
  } else {
-  VarDecl var_decl = {.name = name};
+  VarDecl var_decl = {.name = name, .tasc = tasc};
   if (did_consume(TokenType::Equal)) {
    var_decl.init = parse_expression();
   }
@@ -85,6 +119,69 @@ Declaration CParser::parse_declaration() {
  }
  
  return decl;
+}
+
+Type CParser::parse_type(std::vector<Type> types) {
+ switch (types.size()) {
+  case 1: return types[0]; break;
+  case 2: {
+   if (types[0] == types[1]) error_at_line(peek().line, "Invalid Type");
+
+   if (types[0] == Type::Long || types[1] == Type::Long) {
+    return Type::Long;
+   } else if (types[0] == Type::ULong || types[1] == Type::ULong) {
+    return Type::ULong;
+   }
+  } break;
+  default: error_at_line(peek().line, std::to_string(types.size()));
+ }
+
+ return Type::Int;
+}
+
+TypeAndStorageClass CParser::parse_type_and_storage_class() {
+ std::vector<Type> types;
+ std::vector<StorageClass> storage_classes;
+ TypeAndStorageClass tasc = {.storage_class = StorageClass::None};
+
+ bool has_unsigned = false;
+ bool has_signed = false;
+ for (TokenType type = peek().type; is_specifier(type); consume(), type = peek().type) {
+  switch (type) {
+   case TokenType::Int:  types.push_back(Type::Int); break;
+   case TokenType::Long: types.push_back(Type::Long); break;
+   case TokenType::Static: storage_classes.push_back(StorageClass::Static); break;
+   case TokenType::Extern: storage_classes.push_back(StorageClass::Extern); break;
+   case TokenType::Signed: {
+    if (has_signed || has_unsigned) error_at_line(peek().line, "Invalid Type");
+
+    has_signed = true;
+   } break;
+   case TokenType::Unsigned: {
+    if (has_signed || has_unsigned) error_at_line(peek().line, "Invalid Type");
+
+    has_unsigned = true;
+   } break;
+  }
+ }
+
+ if (types.size() == 0 && (has_signed || has_unsigned)) {
+  types.push_back(Type::Int);
+ }
+
+ for (int i = 0; has_unsigned && i < types.size(); i++) {
+  types[i] = types[i] == Type::Long ? Type::ULong : Type::UInt;
+ }
+
+ int line = peek().line;
+ if (storage_classes.size() > 1) error_at_line(line, "Invalid storage class.");
+
+ tasc.type = parse_type(types);
+ if (storage_classes.size() == 1) {
+  tasc.storage_class = storage_classes[0];
+ }
+
+ return tasc;
 }
 
 Statement CParser::parse_statement() {
@@ -109,10 +206,9 @@ Statement CParser::parse_statement() {
  } else if (did_consume(TokenType::Case) || did_consume(TokenType::Default)) {
   expect_semicolon = false;
   Case _case;
-  _case.is_default = cur.type == TokenType::Default;
-  if (!_case.is_default) {
+  if (cur.type != TokenType::Default) {
    _case.expr = parse_expression();
-  } else _case.expr = Constant{._const = ""};
+  }
 
   expect(TokenType::Colon, "Expected ':' after case statement.");
   _case.stmt = new Statement(parse_statement());
@@ -156,7 +252,7 @@ Statement CParser::parse_statement() {
   expect(TokenType::Left_Paren, "Expected opening parenthesis after\"for\".");
 
   Token next = peek();
-  if (did_consume(TokenType::Int)) {
+  if (is_specifier(next.type)) {
    VarDecl *decl = std::get_if<VarDecl>(new Declaration(parse_declaration()));
    if (decl == nullptr) {
     error_at_line(next.line, "Can only declare a variable in init expression.");
@@ -196,7 +292,7 @@ Statement CParser::parse_statement() {
   expect_semicolon = false;
   stmt = CompoundStatement{.block = new Block(parse_block())};
  } else if (cur.type != TokenType::Semicolon) {
-  stmt = parse_expression();
+  stmt = ExpressionStatement{.expr = parse_expression()};
  }
 
  if (expect_semicolon) {
@@ -206,8 +302,8 @@ Statement CParser::parse_statement() {
  return stmt;
 }
 
-Expression CParser::parse_condition() {
- Expression expr;
+Expression* CParser::parse_condition() {
+ Expression *expr;
   
  expect(TokenType::Left_Paren, "Expected opening parenthesis before condition.");
  expr = parse_expression();
@@ -280,8 +376,8 @@ bool is_unop(TokenType type) {
  return TokenType::Plus_Plus <= type && type <= TokenType::Minus;
 }
 
-Expression CParser::parse_expression(int min_prec) {
- Expression *left = new Expression(parse_factor()), *right, *middle;
+Expression* CParser::parse_expression(int min_prec) {
+ Expression *left = parse_factor(), *right, *middle;
  Token next_token = peek();
  TokenType type = next_token.type;
 
@@ -290,46 +386,84 @@ Expression CParser::parse_expression(int min_prec) {
   BinaryOp op = parse_binop(next_token);
 
   if (type >= TokenType::Equal) {
-   right = new Expression(parse_expression(precedence[type]));
-   left  = new Expression(Assignment{.op = op, .left = left, .right = right});
+   right = parse_expression(precedence[type]);
+   left  = new Assignment(op, left, right);
   } else if (type == TokenType::Question) {
-   middle = new Expression(parse_conditional_middle());
-   right  = new Expression(parse_expression(precedence[type]));
-   left   = new Expression(Conditional{.condition = left, .left = middle, .right = right});
+   middle = parse_conditional_middle();
+   right  = parse_expression(precedence[type]);
+   left   = new Conditional(left, middle, right);
   } else {
-   right = new Expression(parse_expression(precedence[type] + 1));
-   left  = new Expression(Binary{.op = op, .left = left, .right = right});
+   right = parse_expression(precedence[type] + 1);
+   left  = new Binary(op, left, right);
   }
 
   next_token = peek();
   type = next_token.type;
  }
 
- return *left;
+ return left;
 }
 
-Expression CParser::parse_conditional_middle() {
- Expression expr = parse_expression();
+Expression* CParser::parse_conditional_middle() {
+ Expression *expr = parse_expression();
 
  expect(TokenType::Colon, "Expected a ':' after first half of conditional expression.");
  return expr;
 }
 
-Expression CParser::parse_factor() {
+Expression* CParser::parse_factor() {
  Token cur = consume();
- TokenType type = cur.type;
- Expression expr;
+ TokenType token_type = cur.type;
+ Expression *expr;
  
- if (type == TokenType::Number) {
-  expr = Constant{._const = cur.to_string()};
- } else if (type == TokenType::Identifier) {
+ if (TokenType::Number <= token_type && token_type <= TokenType::Unsigned_Long_Number) {
+  Type type = Type::Int;
+  string _const = cur.to_string();
+  bool is_unsigned = false;
+  switch (token_type) {
+   case TokenType::Unsigned_Number: {
+    type = Type::UInt;
+    _const.pop_back();
+    is_unsigned = true;
+   } break;
+   case TokenType::Long_Number: {
+    type = Type::Long;
+    _const.pop_back();
+   } break;
+   case TokenType::Unsigned_Long_Number: {
+    type = Type::ULong;
+    _const.pop_back();
+    _const.pop_back();
+    is_unsigned = true;
+   } break;
+   default: {}
+  }
+
+  size_t val = std::stoull(_const);
+  if (is_unsigned) {
+   if (val > UINT64_MAX) {
+    error_at_line(cur.line, "Constant is too big to be an unsigned int or unsigned long.");
+   } else if (val > UINT32_MAX) {
+    type = Type::ULong;
+   }
+  } else {
+   if (val > INT64_MAX) {
+    error_at_line(cur.line, "Constant is too big to be an int or long.");
+   } else if (val > INT32_MAX) {
+    type = Type::Long;
+   }
+  }
+
+  expr = new Constant(_const);
+  expr->type = type;
+ } else if (token_type == TokenType::Identifier) {
   if (did_consume(TokenType::Left_Paren)) {
-   FunctionCall call = {.name = cur};
+   FunctionCall *call = new FunctionCall(cur);
    if (!did_consume(TokenType::Right_Paren)) {
     do {
-     Expression *arg = new Expression(parse_expression());
+     Expression *arg = parse_expression();
      
-     call.args.push_back(arg);
+     call->args.push_back(arg);
     } while (did_consume(TokenType::Comma));
     
     expect(TokenType::Right_Paren, "Expected ')' after function arguments.");
@@ -337,18 +471,54 @@ Expression CParser::parse_factor() {
 
    expr = call;
   } else {
-   expr = Var{.name = cur};
+   expr = new Var(cur);
   }
- } else if (is_unop(type)) {
-  Unary un;
-  un.postfix = false;
-  un.op = parse_unop(cur);
-  un.expr = new Expression(parse_factor());
+ } else if (is_unop(token_type)) {
+  Unary *un = new Unary();
+  un->postfix = false;
+  un->op = parse_unop(cur);
+  un->expr = parse_factor();
 
   expr = un;
- } else if (type == TokenType::Left_Paren) {
-  expr = parse_expression();
-  expect(TokenType::Right_Paren, "Expected closing parenthesis.");
+ } else if (token_type == TokenType::Left_Paren) {
+  if (is_specifier(peek().type)) {
+   Cast *cast = new Cast();
+   std::vector<Type> types;
+   bool has_signed = false, has_unsigned = false;
+   for (TokenType type = peek().type; is_type(type); consume(), type = peek().type) {
+    switch (type) {
+     case TokenType::Int:  types.push_back(Type::Int); break;
+     case TokenType::Long: types.push_back(Type::Long); break;
+     case TokenType::Signed: {
+      if (has_signed || has_unsigned) error_at_line(peek().line, "Invalid Type");
+
+      has_signed = true;
+     } break;
+     case TokenType::Unsigned: {
+      if (has_signed || has_unsigned) error_at_line(peek().line, "Invalid Type");
+
+      has_unsigned = true;
+     } break;
+    }
+   }
+
+   if (types.size() == 0 && (has_signed || has_unsigned)) {
+    types.push_back(Type::Int);
+   }
+  
+   for (int i = 0; has_unsigned && i < types.size(); i++) {
+    types[i] = types[i] == Type::Long ? Type::ULong : Type::UInt;
+   }
+   
+   expect(TokenType::Right_Paren, "Expected closing parenthesis.");
+   cast->type = parse_type(types);
+   cast->expr = parse_factor();
+
+   expr = cast;
+  } else {
+   expr = parse_expression();
+   expect(TokenType::Right_Paren, "Expected closing parenthesis.");
+  }
  } else {
   error_at_line(cur.line, "Not an expression! " + cur.to_string());
  }
@@ -356,10 +526,10 @@ Expression CParser::parse_factor() {
  TokenType next_token_type = peek().type;
  while (next_token_type == TokenType::Plus_Plus || next_token_type == TokenType::Minus_Minus) {
   consume();
-  Unary unary;
-  unary.postfix = true;
-  unary.op = next_token_type == TokenType::Plus_Plus ? UnaryOp::Increment : UnaryOp::Decrement;
-  unary.expr = new Expression(expr);
+  Unary *unary = new Unary();
+  unary->postfix = true;
+  unary->op = next_token_type == TokenType::Plus_Plus ? UnaryOp::Increment : UnaryOp::Decrement;
+  unary->expr = expr;
 
   expr = unary;
   next_token_type = peek().type;

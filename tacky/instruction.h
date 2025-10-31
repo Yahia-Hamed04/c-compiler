@@ -30,7 +30,34 @@ namespace TACKY {
   Value src, dst;
  
   Copy(Value src, Value dst) : src(src), dst(dst) {}
-  Copy(Value src, Token dst) : src(src), dst(TACKY::Var{.name = dst}) {}
+  Copy(Value src, Token dst) : src(src), dst(TACKY::Var(dst)) {}
+  Copy(Value src, Parser::VarDecl dst) : src(src) {
+   Var dst_var(dst.name);
+   dst_var.type = dst.tasc.type;
+
+   this->dst = dst_var;
+  }
+ };
+ 
+ struct SignExtend {
+  Value src, dst;
+ 
+  SignExtend(Value src, Value dst) : src(src), dst(dst) {}
+  SignExtend(Value src, Token dst) : src(src), dst(TACKY::Var(dst)) {}
+ };
+ 
+ struct ZeroExtend {
+  Value src, dst;
+ 
+  ZeroExtend(Value src, Value dst) : src(src), dst(dst) {}
+  ZeroExtend(Value src, Token dst) : src(src), dst(TACKY::Var(dst)) {}
+ };
+ 
+ struct Truncate {
+  Value src, dst;
+ 
+  Truncate(Value src, Value dst) : src(src), dst(dst) {}
+  Truncate(Value src, Token dst) : src(src), dst(TACKY::Var(dst)) {}
  };
  
  struct Jump {
@@ -72,6 +99,9 @@ namespace TACKY {
   Return,
   Binary,
   Copy,
+  SignExtend,
+  ZeroExtend,
+  Truncate,
   Jump,
   JumpIfZero,
   JumpIfNotZero,

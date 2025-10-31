@@ -4,11 +4,12 @@
 using namespace Parser;
 
 void CParser::resolve_labels() {
- for (FuncDecl &func : program.functions) {
-  if (func.body == nullptr) continue;
+ for (Declaration &decl : program.decls) {
+  FuncDecl *func = std::get_if<FuncDecl>(&decl);
+  if (func == nullptr || func->body == nullptr) continue;
 
-  curr_func = &func;
-  resolve_labels(*func.body);
+  curr_func = func;
+  resolve_labels(*func->body);
  }
 }
 
