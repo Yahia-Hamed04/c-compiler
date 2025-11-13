@@ -15,7 +15,6 @@ Made using what i learned from reading [Crafting Interpreters](https://craftingi
  - [x] Control-Flow statements (`if`, `else`, `while`, `for`, etc.)
  - [x] Functions
  - [x] Primitive types
- - [ ] Structures
  - [ ] Pointers
  - [ ] Arrays
  - [ ] Strings
